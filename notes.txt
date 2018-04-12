@@ -1,0 +1,63 @@
+FF FF BA 05 13 2E 89 16 35 02 B4 30 CD 21 8B 2E 02 FF FF 00 8B 1E 2C 00 8E DA A3 90 00 8C 06 8E 00 89 1E F0 1F 8A FC 2E A6 00 E8 3D 01 C4 3E 88 FE FF E4 C7 8B D8 B9 FF 7F FC F2 AE E3 61 43 26 38 FF E1 05 75 F6 80 CD 80 F7 D9 89 0E E5 B9 01 FF 10 00 D3 E3 83 C3 08
+
+unpacks to
+
+BA 05 13 2E 89 16 35 02 B4 30 CD 21 8B 2E 02 00 8B 1E 2C 00 8E DA A3 90 00 8C 06 8E 00 89 1E 8A 00 89 2E A6 00 E8 3D 01 C4 3E 88 00 8B C7 8B D8 B9 FF 7F FC F2 AE E3 61 43 26 38 05 75 F6 80 CD 80 F7 D9 89 0E 88 00 B9 01 00 D3 E3 83 C3 08 83
+
+or similar
+
+so we read 2 bytes, this is our bitmask
+
+FF FF
+bit 1 = literals, so we can just straight copy the next 15 bytes, pick up the next bitmask, and copy that 16th byte over
+BA 05 13 2E 89 16 35 02 B4 30 CD 21 8B 2E 02 FF FF 00
+
+left to be discovered:
+8B 1E 2C 00 8E DA A3 90 00 8C 06 8E 00 89 1E 8A 00 89 2E A6 00 E8 3D 01 C4 3E 88 00 8B C7 8B D8 B9 FF 7F FC F2 AE E3 61 43 26 38 05 75 F6 80 CD 80 F7 D9 89 0E 88 00 B9 01 00 D3 E3 83 C3 08 83
+
+next bitmask is the same
+8B 1E 2C 00 8E DA A3 90 00 8C 06 8E 00 89 1E F0 1F 8A
+
+left to be discovered:
+00 89 2E A6 00 E8 3D 01 C4 3E 88 00 8B C7 8B D8 B9 FF 7F FC F2 AE E3 61 43 26 38 05 75 F6 80 CD 80 F7 D9 89 0E 88 00 B9 01 00 D3 E3 83 C3 08 83
+
+so this bitmask is F0 1F, but read as little endian it's 1FF0, or 0001111111110000
+
+pulling from the right
+
+we get bits 0,0 meaning distance,length pair
+get next 2 bits, 0,0 = 0
+add 2 (minimum length is 2) = 2
+read the next byte = 0xFC = -4
+so we have (4,2) as our pair
+going back 4 bytes gets us 00 89, so add them on the end
+
+left to be discovered:
+2E A6 00 E8 3D 01 C4 3E 88 00 8B C7 8B D8 B9 FF 7F FC F2 AE E3 61 43 26 38 05 75 F6 80 CD 80 F7 D9 89 0E 88 00 B9 01 00 D3 E3 83 C3 08 83
+
+next 9 bits are 1
+
+left to be discovered:
+00 8B C7 8B D8 B9 FF 7F FC F2 AE E3 61 43 26 38 05 75 F6 80 CD 80 F7 D9 89 0E 88 00 B9 01 00 D3 E3 83 C3 08 83
+
+we're probably at a point where it's easier to start decoding through the file and then throwing our arms up when we hit the harder cases
+
+pull 2 bits = 00
+next 2 bits = 0 (reload, FE FF = FFFE = 1111111111111110) and 0
+so pull next byte (0xE4 = -28) and copy 2 bytes from there (00 8B)
+
+left to be discovered:
+C7 8B D8 B9 FF 7F FC F2 AE E3 61 43 26 38 05 75 F6 80 CD 80 F7 D9 89 0E 88 00 B9 01 00 D3 E3 83 C3 08 83
+
+next 15 bits are 1 so copy across
+
+left to be discovered:
+75 F6 80 CD 80 F7 D9 89 0E 88 00 B9 01 00 D3 E3 83 C3 08 83
+
+reload (FF E1 = E1FF = 1110000111111111)
+so copy 9 literals
+
+left to be discovered:
+88 00 B9 01 00 D3 E3 83 C3 08 83
+
+0000 = read byte (E5 = -27) and copy 2 bytes across
