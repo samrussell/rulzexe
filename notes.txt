@@ -61,3 +61,16 @@ left to be discovered:
 88 00 B9 01 00 D3 E3 83 C3 08 83
 
 0000 = read byte (E5 = -27) and copy 2 bytes across
+
+at 323 in file (including the 0x20)
+we get 0xFDCE as the number
+
+which is FD high CE low
+further breaks into 11111101, take the bottom 3 bits out for mask (101) so we have number being 0x1FCE = 8142m and 5 as the mask
+
+0x1FCE - 0x2000 = -50
+
+with mask = 5 (i.e. non-zero) we add 2 make this the length, so the distance,length pair is (50, 7)
+if mask is 0 then we get the next byte, if it's 0 then we're done
+if it's 1 it's a segment resync (important for DOS but we can just no-op here)
+anything else and this number + 1 is the length
