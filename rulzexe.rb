@@ -1,4 +1,5 @@
 require "./lib/code_unpacker.rb"
+require "./lib/reloc_unpacker.rb"
 require "./lib/dos_header.rb"
 
 input_filename, output_filename = ARGV
@@ -21,7 +22,17 @@ File.open(input_filename, "r") do |input_file|
 
   # unpack relocs
 
-  num_relocs = 0
+  lz_loader_offset = code_start + (0x10 * dos_header.initial_cs)
+
+  input_file.seek(lz_loader_offset)
+
+  initial_ip, initial_cs, initial_sp, initial_ss = input_file.read(8).unpack("<S<S<S<S")
+
+  input_file.seek(lz_loader_offset + 0x158)
+
+  unpacked_relocs = RelocUnpacker.new(input_file).unpack
+
+  num_relocs = unpacked_relocs.length / 4
 
   header_size = 0x1C + (num_relocs * 4)
 
@@ -37,12 +48,6 @@ File.open(input_filename, "r") do |input_file|
   memory_growth = unpacked_code.length - packed_code_length
 
   minimum_memory_required = dos_header.minimum_memory_required - (memory_growth / 0x10) # check if we have the remainder edge bug
-
-  lz_loader_offset = code_start + (0x10 * dos_header.initial_cs)
-
-  input_file.seek(lz_loader_offset)
-
-  initial_ip, initial_cs, initial_sp, initial_ss = input_file.read(8).unpack("<S<S<S<S")
 
   # build new dos header
   output_dos_header = DosHeader.new(
@@ -64,6 +69,7 @@ File.open(input_filename, "r") do |input_file|
 
   File.open(output_filename, "w") do |output_file|
     output_file.write(output_dos_header.pack)
+    output_file.write(unpacked_relocs)
     output_file.write(unpacked_code)
   end
 end
